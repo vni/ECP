@@ -4,6 +4,8 @@
 #include <string.h>
 #include <ctype.h>
 
+/* FIXME: NOT WORKING: int (*prints[])(void); */
+
 /*
  * PSEUDOCODE:
  *
@@ -117,7 +119,7 @@ struct token {
 	char string[MAXTOKENLEN];
 };
 
-struct token stack[MAXTOKENS];
+struct token stack[MAXTOKENS]; /* stack[0] is not used. Maybe in the future it will be used instead of this */
 struct token this;
 int stackpos;
 
@@ -175,7 +177,7 @@ void gettoken(void) {
 		ungetc(c, stdin);
 		this.string[len] = '\0';
 		this.type = NUMBER;
-	} else if (c == '(' || c == ')' || c == '[' || c == ']' || c == '*' || c == ';') {
+	} else if (c == '(' || c == ')' || c == '[' || c == ']' || c == '*' || c == ';' || c == ',') {
 		this.string[len++] = c;
 		this.string[len] = '\0';
 		this.type = c;
@@ -188,59 +190,64 @@ void read_to_first_identifier(void) {
 	do {
 		gettoken();
 		die_if(stackpos >= MAXTOKENS, "ERROR: Too many tokens\n");
-		stack[stackpos++] = this;
+		stack[++stackpos] = this;
 		/*printf("{ %s, %s }\n", type_to_string(this.type), this.string);*/
 	} while (this.type != IDENTIFIER);
 	stackpos--; /* discard idenfier from the top of the stack. It is in this and needed only here. */
 
 	printf("%s is ", this.string);
-	/*
-	printf("STACK IS:");
-	while (stackpos--)
-		printf("stack[%d] = { %s, %s };\n", stackpos, type_to_string(stack[stackpos].type), stack[stackpos].string);
-		*/
 	gettoken();
 }
 
 void deal_with_arrays(void) {
 	gettoken();
-	if (this.type == ']')
+	if (this.type == ']') {
 		printf("array of ");
-	else if (this.type == NUMBER)
+		gettoken();
+	} else if (this.type == NUMBER) { 
 		printf("array of %d ", atoi(this.string));
-	else
+		gettoken();
+		die_if(this.type != ']', "ERROR: expected ']' after NUMBER in %s\n", __FUNCTION__);
+		gettoken();
+	} else {
 		die("ERROR: deal_with_arrays got unexpected token: %s\n", type_to_string(this.type));
+	}
 }
 
+/* deal_with_function_args do not parse function arguments, just reads till the closing ')' */
 void deal_with_function_args(void) {
-	printf("ERROR: %s() is not implemented yet\n", __FUNCTION__);
+	do {
+		gettoken();
+	} while (this.type != ')');
+	printf("function returning ");
+	/*gettoken();*/
 }
 
 void deal_with_any_pointers(void) {
-TRACE;
-	printf("{ %s, %s }\n", type_to_string(stack[stackpos].type), stack[stackpos].string);
 	while (stackpos && stack[stackpos].type == '*') {
-		/*printf("{ %s, %s }\n", type_to_string(stack[stackpos].type), stack[stackpos].string);*/
 		printf("pointer to ");
 		stackpos--;
 	}
 }
 
 void deal_with_declarator(void) {
-	if (this.type == '[')
+	while (this.type == '[')
 		deal_with_arrays();
-	else if (this.type == '(')
+	if (this.type == '(')
 		deal_with_function_args();
 	deal_with_any_pointers();
-	while (stackpos--) {
+	while (stackpos) {
 		if (stack[stackpos].type == '(') {
-			gettoken();
+			printf("stack[stackpos].type == '('; this.type == '%c'\n", this.type);
+			/*gettoken();*/
 			die_if(this.type != ')', "ERROR: ')' expected, but got '%c'\n", this.type);
+			gettoken();
 			deal_with_declarator();
 		} else {
 			printf("%s ", stack[stackpos].string);
 			/*printf("<HOW TO PRINT IT?> { %s, %s }\n", type_to_string(stack[stackpos].type), stack[stackpos].string);*/
 		}
+		stackpos--;
 	}
 }
 
