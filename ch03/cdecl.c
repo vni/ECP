@@ -5,6 +5,7 @@
 #include <ctype.h>
 
 /* FIXME: NOT WORKING: int (*prints[])(void); */
+/* FIXME: NOT WORKING: int (*pa)[]; */
 
 /*
  * PSEUDOCODE:
@@ -56,7 +57,13 @@
  *
  */
 
-#define TRACE printf("%s()\n", __FUNCTION__)
+#define TRACE do { int sp = stackpos; \
+		printf("%s()\n", __FUNCTION__); \
+		while (sp) {\
+			printf("<%s:%s>\n", type_to_string(stack[sp].type), stack[sp].string);\
+			sp--;\
+		}\
+	} while(0)
 
 void die(const char *fmt, ...) {
 	va_list args;
@@ -189,7 +196,7 @@ void gettoken(void) {
 void read_to_first_identifier(void) {
 	do {
 		gettoken();
-		die_if(stackpos >= MAXTOKENS, "ERROR: Too many tokens\n");
+		die_if((stackpos+1) >= MAXTOKENS, "ERROR: Too many tokens\n");
 		stack[++stackpos] = this;
 		/*printf("{ %s, %s }\n", type_to_string(this.type), this.string);*/
 	} while (this.type != IDENTIFIER);
@@ -200,6 +207,7 @@ void read_to_first_identifier(void) {
 }
 
 void deal_with_arrays(void) {
+	/*TRACE;*/
 	gettoken();
 	if (this.type == ']') {
 		printf("array of ");
@@ -238,16 +246,17 @@ void deal_with_declarator(void) {
 	deal_with_any_pointers();
 	while (stackpos) {
 		if (stack[stackpos].type == '(') {
-			printf("stack[stackpos].type == '('; this.type == '%c'\n", this.type);
+			/*printf("stack[stackpos].type == '('; this.type == '%c'\n", this.type);*/
 			/*gettoken();*/
 			die_if(this.type != ')', "ERROR: ')' expected, but got '%c'\n", this.type);
+			stackpos--; /* discart '(' from the top of the stack */
 			gettoken();
 			deal_with_declarator();
 		} else {
 			printf("%s ", stack[stackpos].string);
+			stackpos--; /* pop top of the stack */
 			/*printf("<HOW TO PRINT IT?> { %s, %s }\n", type_to_string(stack[stackpos].type), stack[stackpos].string);*/
 		}
-		stackpos--;
 	}
 }
 
